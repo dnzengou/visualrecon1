@@ -9,19 +9,19 @@ cache:
   - node_modules
 env:
   global:
-  - CF_APP=visual-recognition-demo
+  - CF_APP=visual-recognition-nodejs-20170929180020841
   - CF_API=https://api.ng.bluemix.net
-  - CF_ORGANIZATION=WatsonPlatformServices
-  - CF_SPACE=demos
-  - VISUAL_RECOGNITION_API_KEY="bogus key to let server spin up for offline tests"
-before_deploy: npm install -g cf-blue-green
+  - CF_ORGANIZATION=dnzengou@gmail.com
+  - CF_SPACE=dev
+  - VISUAL_RECOGNITION_API_KEY=a13d4b064c222c79cdc8d438cd86186cff14bcb0"
+before_deploy: npm install -g https://github.com/germanattanasio/cf-blue-green
 deploy:
   provider: script
   script:
     - cf-blue-green-travis
   on:
     branch: master
-    repo: watson-developer-cloud/visual-recognition-nodejs
+    repo: dnzengou/visualrecon1
   skip_cleanup: true
 notifications:
   email: false

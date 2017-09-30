@@ -36,14 +36,14 @@ require('./config/express')(app);
 // Create the service wrapper
 // If no API Key is provided here, the watson-developer-cloud@2.x.x library will check for an VISUAL_RECOGNITION_API_KEY
 // environment property and then fall back to the VCAP_SERVICES property provided by Bluemix.
-var visual_recognition = watson.visual_recognition({
+var visualRecognition = new watson.VisualRecognitionV3({
     api_key: 'a13d4b064c222c79cdc8d438cd86186cff14bcb0',
-    version_date: '2016-05-20'
+    version_date: '2015-05-19'
 });
 
 app.get('/', function(req, res) {
     res.render('use', {
-        bluemixAnalytics: process.env.BLUEMIX_ANALYTICS
+        bluemixAnalytics: !!process.env.BLUEMIX_ANALYTICS,
     });
 });
 
@@ -73,7 +73,7 @@ app.get('/thermometer', function(req, res) {
 });
 
 app.get('/ready/:classifier_id', function(req, res) {
-    visual_recognition.getClassifier(req.params, function getClassifier(err, classifier) {
+    visualRecognition.getClassifier(req.params, function getClassifier(err, classifier) {
         if (err) {
             console.log(err);
             return res.status(err.code || 500).json(err);
@@ -84,7 +84,7 @@ app.get('/ready/:classifier_id', function(req, res) {
 
 app.get('/train', function(req, res) {
     res.render('train', {
-        bluemixAnalytics: process.env.BLUEMIX_ANALYTICS
+        bluemixAnalytics: !!process.env.BLUEMIX_ANALYTICS,
     });
 });
 
@@ -125,8 +125,8 @@ app.post('/api/classifiers', app.upload.fields([{ name: 'classupload', maxCount:
             formData.negative_examples = fs.createReadStream(negpath);
         }
     }
-    //visualRecognition
-    visual_recognition.createClassifier(formData, function createClassifier(err, classifier) {
+
+    visualRecognition.createClassifier(formData, function createClassifier(err, classifier) {
         if (req.files) {
             req.files.classupload.map(deleteUploadedFile);
             if (req.files.negativeclassupload) {
@@ -143,7 +143,7 @@ app.post('/api/classifiers', app.upload.fields([{ name: 'classupload', maxCount:
         // for users who want that feature
         if (!process.env.PRESERVE_CLASSIFIERS) {
             // deletes the classifier after an hour
-            setTimeout(visual_recognition.deleteClassifier.bind(visual_recognition, classifier), ONE_HOUR);
+            setTimeout(visualRecognition.deleteClassifier.bind(visualRecognition, classifier), ONE_HOUR);
             res.json(classifier);
         }
     });
@@ -176,7 +176,7 @@ app.post('/api/retrain/:classifier_id', app.upload.any(), function(req, res) {
         return store;
     }, formData);
 
-    visual_recognition.retrainClassifier(formData, function(err, classifier) {
+    visualRecognition.retrainClassifier(formData, function(err, classifier) {
         if (err) {
             console.log(err, Object.keys(formData), classifier);
         }
@@ -202,7 +202,7 @@ app.post('/api/retrain/:classifier_id', app.upload.any(), function(req, res) {
  * @param req.params.classifier_id The classifier id
  */
 app.get('/api/classifiers/:classifier_id', function(req, res) {
-    visual_recognition.getClassifier(req.params, function getClassifier(err, classifier) {
+    visualRecognition.getClassifier(req.params, function getClassifier(err, classifier) {
         if (err) {
             console.log(err);
             return res.status(err.code || 500).json(err);
@@ -217,7 +217,7 @@ app.get('/api/classifiers/:classifier_id', function(req, res) {
  * @return {Object}             { type: String, data: Buffer }
  */
 function parseBase64Image(imageString) {
-    var matches = imageString.match(/^data:image\/([A-Za-z-+\/]+);base64,(.+)$/);
+    var matches = imageString.match(/^data:image\/([A-Za-z-+/]+);base64,(.+)$/);
     var resource = {};
 
     if (matches.length !== 3) {
@@ -267,6 +267,8 @@ app.post('/api/classify', app.upload.single('images_file'), function(req, res) {
         params.classifier_ids = req.body.classifier_id ? [req.body.classifier_id] : [process.env.OVERRIDE_CLASSIFIER_ID];
         methods.push('classify');
     } else {
+        params.classifier_ids = ['default', 'food'];
+        params.threshold = 0.5; //So the classifers only show images with a confindence level of 0.5 or higher
         methods.push('classify');
         methods.push('detectFaces');
         methods.push('recognizeText');
@@ -274,7 +276,7 @@ app.post('/api/classify', app.upload.single('images_file'), function(req, res) {
 
     // run the 3 classifiers asynchronously and combine the results
     async.parallel(methods.map(function(method) {
-        var fn = visual_recognition[method].bind(visual_recognition, params);
+        var fn = visualRecognition[method].bind(visualRecognition, params);
         if (method === 'recognizeText' || method === 'detectFaces') {
             return async.reflect(async.timeout(fn, TWENTY_SECONDS));
         } else {
