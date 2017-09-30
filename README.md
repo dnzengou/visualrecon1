@@ -22,7 +22,7 @@ Give it a try! Click the button below to fork into IBM DevOps Services and deplo
       label: watson_vision_combined
       plan: free
   applications:
-  - name: <application-name>
+  - name: visualrecon1
     path: .
     command: npm start
     memory: 512M
